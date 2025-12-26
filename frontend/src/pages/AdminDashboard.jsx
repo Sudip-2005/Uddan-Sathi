@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getFlights, addFlight, cancelFlight } from "../services/api";
 import { useUser, UserButton } from "@clerk/clerk-react";
+import DisasterModePage from './DisasterModePage';
 
 export default function AdminDashboard() {
   const { user } = useUser();
@@ -44,6 +45,8 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  const disasterList = flights.filter((f) => f.status === 'Cancelled' || f.status === 'Diverted');
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -181,6 +184,7 @@ export default function AdminDashboard() {
              <h2 style={styles.panelTitle}>LIVE MISSION MONITORING</h2>
           </div>
 
+          {disasterList.length > 0 && <DisasterModePage flights={disasterList} />}
           <div style={styles.monitorTable}>
              <div style={styles.tableHead}>
                <span>CALLSIGN</span>

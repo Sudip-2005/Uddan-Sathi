@@ -1,5 +1,7 @@
 from dotenv import load_dotenv
 import os
+import json
+import requests
 
 load_dotenv()
 
@@ -62,40 +64,59 @@ def add_flight():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 # --- Cancel flight ---
+from datetime import datetime
+
 @app.route("/cancel-flight", methods=["POST"])
 def cancel_flight():
     try:
         data = request.get_json()
         flight_id = data.get("flight_id")
+        reason = data.get("reason", "Operational reasons")
+
         root = get_database()
 
-        # Fetch the flight data (returns a dict)
+        # Fetch flight
         flight_data = root.child("flights").child(flight_id).get()
-        
         if not flight_data:
             return jsonify({"ok": False, "error": "Flight not found"}), 404
 
-        # 1. Store in cancelled_flights
+        passengers = flight_data.get("passengers", {})
+
+        # Create notifications for each passenger
+        for pnr, passenger in passengers.items():
+            notification = {
+                "flight_id": flight_id,
+                "message": f"Your flight {flight_id} has been cancelled due to {reason}.",
+                "type": "CANCELLED",
+                "created_at": datetime.utcnow().isoformat()
+            }
+
+            root.child("notifications").child(pnr).push(notification)
+
+        # Move flight to cancelled_flights
         root.child("cancelled_flights").push({
             "flight_id": flight_id,
             "original_data": flight_data,
-            "reason": data.get("reason"),
-            "cancel_time": data.get("cancel_time")
+            "reason": reason,
+            "cancel_time": datetime.utcnow().isoformat()
         })
 
-        # 2. Delete from active flights
+        # Remove from active flights
         root.child("flights").child(flight_id).delete()
 
-        return jsonify({"ok": True, "message": "Flight cancelled"}), 200
+        return jsonify({
+            "ok": True,
+            "message": "Flight cancelled and passengers notified",
+            "notified_passengers": list(passengers.keys())
+        }), 200
 
     except Exception as e:
         traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
+    
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-    import json
-import os
+
+
 
 @app.route("/admin/init-database", methods=["POST"])
 def init_database():
@@ -116,3 +137,37 @@ def init_database():
     return jsonify({
         "message": "Initial flight database uploaded successfully"
     }), 200
+@app.route("/admin/add-passenger", methods=["POST"])
+def add_passenger():
+    data = request.json
+    flight_id = data["flight_id"]
+    pnr = data["pnr"]
+
+    passenger_data = {
+        "name": data["name"],
+        "seat": data["seat"],
+        "email": data["email"]
+    }
+
+    db = get_database()
+    db.child("flights").child(flight_id).child("passengers").child(pnr).set(passenger_data)
+
+    return jsonify({"message": "Passenger added successfully"}), 200
+@app.route("/notifications/<pnr>", methods=["GET"])
+def get_notifications(pnr):
+    root = get_database()
+    data = root.child("notifications").child(pnr).get()
+
+    if not data:
+        return jsonify({"ok": True, "data": []}), 200
+
+    notifications = []
+    for notif_id, notif in data.items():
+        notif["id"] = notif_id
+        notifications.append(notif)
+
+    return jsonify({"ok": True, "data": notifications}), 200
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
+

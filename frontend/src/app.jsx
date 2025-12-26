@@ -4,6 +4,7 @@ import { ClerkProvider, SignedIn, SignedOut, useUser } from "@clerk/clerk-react"
 import WelcomePage from "./pages/WelcomePage";
 import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
+import DisasterModePage from "./pages/DisasterModePage";
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -22,6 +23,7 @@ function App() {
               </>
             } 
           />
+          <Route path="/dashboard/disaster" element={<DisasterModePage />} />
         </Routes>
       </Router>
     </ClerkProvider>
