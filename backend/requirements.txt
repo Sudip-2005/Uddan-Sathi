@@ -13,3 +13,4 @@ requests==2.31.0
 
 # Additional utilities
 Werkzeug==3.0.1
+reportlab==4.0.2
