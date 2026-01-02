@@ -13,6 +13,7 @@
     /* Recommended for Vite/React projects */
     "allowJs": true,
     "skipLibCheck": true,
+    "noEmit": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,

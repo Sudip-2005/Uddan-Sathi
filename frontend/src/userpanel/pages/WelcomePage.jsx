@@ -275,7 +275,7 @@ const styles = {
   },
   glassLayer: {
     background: "rgba(255,255,255,0.03)",
-    backdropFilter: "blur(10px)",
+    backdropFilter: "blur(10px)", 
     padding: "60px",
     borderRadius: "24px",
     border: "1px solid rgba(255,255,255,0.1)",

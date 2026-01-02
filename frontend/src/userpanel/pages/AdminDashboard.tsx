@@ -1,259 +1,144 @@
 import * as React from "react";
-import { getFlights, addFlight, cancelFlight } from "../services/api";
 import { useUser, UserButton } from "@clerk/clerk-react";
-import DisasterModePage from './DisasterModePage';
+import { Bot, Plane, Banknote, ShieldAlert, Zap, LayoutDashboard, LogOut } from "lucide-react";
+import FlightControl from "./FlightControl";
+import DisasterManifest from "./AffectedManifest";
+import RefundManager from "./RefundManager";
 
 export default function AdminDashboard() {
   const { user } = useUser();
-  const [flights, setFlights] = React.useState([]);
-  const [loading, setLoading] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState("FLIGHTS");
   const [currentTime, setCurrentTime] = React.useState(new Date());
 
-  // Database-aligned form state
-  const [form, setForm] = React.useState({
-    flight_number: "",
-    airline_name: "",
-    airline_code: "",
-    source: "",
-    destination: "",
-    departure_time: "",
-    price: "",
-    seats_available: ""
-  });
-
   React.useEffect(() => {
-    loadFlights();
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const loadFlights = async () => {
-    setLoading(true);
-      try {
-      const res = await getFlights();
-      if (res.ok && res.data) {
-        // Converting keyed object to array for mapping
-        const flightArray = Object.entries(res.data).map(([id, details]) => {
-          const det = details as Record<string, any>;
-          return { id, ...det };
-        });
-        setFlights(flightArray);
-      }
-    } catch (err) {
-      console.error("Ops Center Error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const disasterList = flights.filter((f) => f.status === 'Cancelled' || f.status === 'Diverted');
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleAddFlight = async (e) => {
-    e.preventDefault();
-    try {
-      // In professional ops, status defaults to 'Scheduled'
-      const payload = { ...form, status: "Scheduled" };
-      await addFlight(payload);
-      // Reset form
-      setForm({
-        flight_number: "", airline_name: "", airline_code: "",
-        source: "", destination: "", departure_time: "",
-        price: "", seats_available: ""
-      });
-      loadFlights();
-    } catch (err) {
-      alert("Deployment Failed: " + err.message);
-    }
-  };
-
-  const handleTerminate = async (flightId) => {
-    const reason = window.prompt(`CRITICAL: Enter termination reason for ${flightId}:`);
-    if (!reason) return;
-    try {
-      await cancelFlight(flightId, {
-        reason,
-        cancelled_by: user?.fullName || "SYSTEM_ADMIN",
-        cancel_time: new Date().toISOString()
-      });
-      loadFlights();
-    } catch (err) {
-      alert("Termination Error: " + err.message);
-    }
-  };
-
   return (
     <div style={styles.appContainer}>
-      {/* --- HUD: SYSTEM STATUS BAR --- */}
-      <header style={styles.topBar}>
+      {/* --- MAIN ADMIN SIDEBAR (Now the ONLY sidebar) --- */}
+      <aside style={styles.sidebar}>
         <div style={styles.brandGroup}>
-          <div style={styles.logoHex}>U</div>
+          <div style={styles.logoHex}><Zap size={22} color="#fff" strokeWidth={3} /></div>
           <div>
-            <h1 style={styles.mainTitle}>UDAANSATHI <span style={styles.opsText}>OPS-CENTER</span></h1>
-            <div style={styles.statusIndicator}>
-              <span style={styles.pulseDot}></span>
-              <span style={styles.statusText}>ALL SYSTEMS OPERATIONAL // DATA-SYNC: ACTIVE</span>
+            <h1 style={styles.mainTitle}>UDAANSATHI</h1>
+            <span style={styles.opsText}>OPS CENTER ADMIN</span>
+          </div>
+        </div>
+
+        <div style={styles.navLabel}>COMMAND MENU</div>
+        <nav style={styles.navGroup}>
+          <button 
+            onClick={() => setActiveTab("FLIGHTS")} 
+            style={activeTab === "FLIGHTS" ? styles.activeNavBtn : styles.navBtn}
+          >
+            <Plane size={18} /> FLIGHT CONTROL
+          </button>
+
+          <button 
+            onClick={() => setActiveTab("DISASTER")} 
+            style={activeTab === "DISASTER" ? styles.activeNavBtn : styles.navBtn}
+          >
+            <ShieldAlert size={18} /> DISASTER MANIFEST
+          </button>
+
+          <button 
+            onClick={() => setActiveTab("REFUNDS")} 
+            style={activeTab === "REFUNDS" ? styles.activeNavBtn : styles.navBtn}
+          >
+            <Banknote size={18} /> REFUND REQUESTS
+          </button>
+        </nav>
+
+        <div style={styles.sidebarFooter}>
+            <div style={styles.adminCard}>
+                <UserButton afterSignOutUrl="/" />
+                <div style={styles.adminInfo}>
+                    <span style={styles.adminName}>{user?.firstName || "Admin"}</span>
+                    <span style={styles.adminRole}>SYSTEM COMMANDER</span>
+                </div>
             </div>
-          </div>
+            <button style={styles.logoutBtn} onClick={() => window.location.href='/'}>
+                <LogOut size={16} /> EXIT TERMINAL
+            </button>
         </div>
+      </aside>
 
-        <div style={styles.clockCenter}>
-          <div style={styles.clockLabel}>GLOBAL OPERATIONS TIME (UTC)</div>
-          <div style={styles.clockValue}>{currentTime.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
-        </div>
-
-        <div style={styles.adminControl}>
-          <div style={styles.adminMeta}>
-            <span style={styles.adminName}>{user?.fullName}</span>
-            <span style={styles.adminRole}>COMMANDER</span>
-          </div>
-          <UserButton afterSignOutUrl="/" />
-        </div>
-      </header>
-
-      <div style={styles.gridMain}>
-        {/* --- ZONE 01: MISSION DEPLOYMENT (LEFT) --- */}
-        <aside style={styles.sidePanel}>
-          <div style={styles.panelHeader}>
-            <span style={styles.panelIcon}>⊕</span>
-            <h2 style={styles.panelTitle}>MISSION DEPLOYMENT</h2>
+      {/* --- MAIN VIEWPORT --- */}
+      <main style={styles.mainArea}>
+        <header style={styles.topHeader}>
+          <div style={styles.headerStatus}>
+            <div style={styles.pulseDot}></div>
+            <span style={styles.statusText}>LOGIC UNIT: {activeTab} // SECURE_ENCRYPTION_ACTIVE</span>
           </div>
           
-          <form onSubmit={handleAddFlight} style={styles.deploymentForm}>
-            <div style={styles.formSection}>
-              <label style={styles.sectionLabel}>IDENTIFICATION</label>
-              <div style={styles.inputGrid}>
-                <div style={styles.inputBox}>
-                  <label style={styles.label}>FLIGHT ID</label>
-                  <input style={styles.input} name="flight_number" value={form.flight_number} placeholder="6E203" onChange={handleChange} required />
-                </div>
-                <div style={styles.inputBox}>
-                  <label style={styles.label}>CODE</label>
-                  <input style={styles.input} name="airline_code" value={form.airline_code} placeholder="6E" onChange={handleChange} required />
-                </div>
-              </div>
-              <div style={{...styles.inputBox, marginTop: '10px'}}>
-                <label style={styles.label}>CARRIER NAME</label>
-                <input style={styles.input} name="airline_name" value={form.airline_name} placeholder="IndiGo Airlines" onChange={handleChange} required />
-              </div>
+          <div style={styles.clockContainer}>
+            <span style={styles.clockLabel}>SYSTEM TIME (UTC)</span>
+            <div style={styles.clockValue}>
+                {currentTime.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </div>
-
-            <div style={styles.formSection}>
-              <label style={styles.sectionLabel}>LOGISTICS</label>
-              <div style={styles.inputGrid}>
-                <div style={styles.inputBox}>
-                  <label style={styles.label}>ORIGIN</label>
-                  <input style={styles.input} name="source" value={form.source} placeholder="DEL" onChange={handleChange} required />
-                </div>
-                <div style={styles.inputBox}>
-                  <label style={styles.label}>DEST</label>
-                  <input style={styles.input} name="destination" value={form.destination} placeholder="BOM" onChange={handleChange} required />
-                </div>
-              </div>
-              <div style={{...styles.inputBox, marginTop: '10px'}}>
-                <label style={styles.label}>DEPARTURE TIME</label>
-                <input style={styles.input} name="departure_time" type="time" value={form.departure_time} onChange={handleChange} required />
-              </div>
-            </div>
-
-            <div style={styles.formSection}>
-              <label style={styles.sectionLabel}>INVENTORY</label>
-              <div style={styles.inputGrid}>
-                <div style={styles.inputBox}>
-                  <label style={styles.label}>PRICE (INR)</label>
-                  <input style={styles.input} name="price" type="number" value={form.price} placeholder="4999" onChange={handleChange} required />
-                </div>
-                <div style={styles.inputBox}>
-                  <label style={styles.label}>SEATS</label>
-                  <input style={styles.input} name="seats_available" type="number" value={form.seats_available} placeholder="180" onChange={handleChange} required />
-                </div>
-              </div>
-            </div>
-
-            <button type="submit" style={styles.primaryBtn}>PUSH TO LIVE NETWORK</button>
-          </form>
-        </aside>
-
-        {/* --- ZONE 02: LIVE OPERATIONS MONITOR (RIGHT) --- */}
-        <section style={styles.mainMonitor}>
-          <div style={styles.panelHeader}>
-             <span style={styles.panelIcon}>☷</span>
-             <h2 style={styles.panelTitle}>LIVE MISSION MONITORING</h2>
           </div>
+        </header>
 
-          {disasterList.length > 0 && React.createElement(DisasterModePage as any, { flights: disasterList })}
-          <div style={styles.monitorTable}>
-             <div style={styles.tableHead}>
-               <span>CALLSIGN</span>
-               <span>SECTOR</span>
-               <span>SCHEDULE</span>
-               <span>CARRIER</span>
-               <span>ACTION</span>
-             </div>
-             <div style={styles.tableScroll}>
-               {loading ? (
-                 <div style={styles.loadingState}>SYNCING WITH FIREBASE...</div>
-               ) : (
-                 flights.map(f => (
-                   <div key={f.id} style={styles.tableRow}>
-                     <span style={styles.callsign}>{f.id}</span>
-                     <span style={styles.sector}>{f.source} ➔ {f.destination}</span>
-                     <span style={styles.time}>{f.departure_time}</span>
-                     <span style={styles.carrier}>{f.airline_name}</span>
-                     <button onClick={() => handleTerminate(f.id)} style={styles.abortBtn}>TERMINATE</button>
-                   </div>
-                 ))
-               )}
-             </div>
-          </div>
-        </section>
-      </div>
+        <div style={styles.contentWrapper}>
+            {activeTab === "FLIGHTS" && <FlightControl />}
+            {activeTab === "DISASTER" && <DisasterManifest />}
+            {activeTab === "REFUNDS" && <RefundManager />}
+        </div>
+      </main>
     </div>
   );
 }
 
-const styles: { [key: string]: React.CSSProperties } = {
-  appContainer: { backgroundColor: '#05060b', minHeight: '100vh', padding: '20px', color: '#e2e8f0', fontFamily: "'JetBrains Mono', 'Inter', monospace" },
-  topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(12px)', padding: '15px 30px', borderRadius: '16px', border: '1px solid #1e293b', marginBottom: '25px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' },
-  logoHex: { background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '10px', fontWeight: '900', fontSize: '22px', boxShadow: '0 0 20px rgba(59, 130, 246, 0.4)' },
-  brandGroup: { display: 'flex', alignItems: 'center', gap: '15px' },
-  mainTitle: { fontSize: '20px', fontWeight: '800', letterSpacing: '3px', margin: 0, color: '#fff' },
-  opsText: { color: '#3b82f6', fontWeight: '300' },
-  statusIndicator: { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' },
-  pulseDot: { width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%', boxShadow: '0 0 10px #22c55e' },
-  statusText: { fontSize: '9px', color: '#64748b', letterSpacing: '1px' },
-  clockCenter: { textAlign: 'center' },
-  clockLabel: { fontSize: '9px', color: '#475569', letterSpacing: '2px', marginBottom: '4px' },
-  clockValue: { fontSize: '26px', fontWeight: '800', letterSpacing: '3px', color: '#3b82f6', textShadow: '0 0 15px rgba(59, 130, 246, 0.3)' },
-  adminControl: { display: 'flex', alignItems: 'center', gap: '15px' },
-  adminMeta: { textAlign: 'right' },
-  adminName: { display: 'block', fontSize: '14px', fontWeight: '700' },
-  adminRole: { fontSize: '10px', color: '#3b82f6', letterSpacing: '2px' },
-  gridMain: { display: 'grid', gridTemplateColumns: '360px 1fr', gap: '25px' },
-  sidePanel: { background: 'rgba(15, 23, 42, 0.4)', borderRadius: '20px', border: '1px solid #1e293b', padding: '24px', height: 'fit-content', position: 'sticky' as React.CSSProperties['position'], top: '110px' },
-  mainMonitor: { background: 'rgba(15, 23, 42, 0.4)', borderRadius: '20px', border: '1px solid #1e293b', padding: '24px' },
-  panelHeader: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '25px', borderBottom: '1px solid #1e293b', paddingBottom: '15px' },
-  panelIcon: { color: '#3b82f6', fontSize: '22px' },
-  panelTitle: { fontSize: '12px', fontWeight: '800', letterSpacing: '2px', margin: 0, color: '#94a3b8' },
-  deploymentForm: { display: 'flex', flexDirection: 'column', gap: '15px' },
-  formSection: { background: 'rgba(2, 6, 23, 0.5)', padding: '15px', borderRadius: '12px', borderLeft: '4px solid #3b82f6' },
-  sectionLabel: { fontSize: '9px', fontWeight: '900', color: '#3b82f6', letterSpacing: '2px', marginBottom: '15px', display: 'block' },
-  inputGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' },
-  inputBox: { display: 'flex', flexDirection: 'column', gap: '6px' },
-  label: { fontSize: '9px', fontWeight: '700', color: '#475569', letterSpacing: '1px' },
-  input: { background: '#020617', border: '1px solid #334155', padding: '12px', borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none', width: '100%', boxSizing: 'border-box' },
-  primaryBtn: { background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', color: '#fff', border: 'none', padding: '16px', borderRadius: '10px', fontWeight: '900', letterSpacing: '2px', cursor: 'pointer', boxShadow: '0 5px 20px rgba(59, 130, 246, 0.4)', marginTop: '10px' },
-  monitorTable: { width: '100%' },
-  tableHead: { display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1.2fr 0.8fr', padding: '15px 20px', background: 'rgba(30, 41, 59, 0.6)', borderRadius: '10px', fontSize: '11px', fontWeight: '900', color: '#64748b', letterSpacing: '2px' },
-  tableScroll: { maxHeight: '65vh', overflowY: 'auto', marginTop: '10px' },
-  tableRow: { display: 'grid', gridTemplateColumns: '1fr 2fr 1fr 1.2fr 0.8fr', padding: '20px', borderBottom: '1px solid #1e293b', alignItems: 'center', transition: '0.3s' },
-  callsign: { color: '#3b82f6', fontWeight: '900', fontSize: '16px' },
-  sector: { fontWeight: '600', color: '#f8fafc', fontSize: '14px' },
-  time: { color: '#94a3b8', fontSize: '14px' },
-  carrier: { fontSize: '12px', color: '#64748b' },
-  abortBtn: { background: 'rgba(244, 63, 94, 0.1)', border: '1px solid #f43f5e', color: '#f43f5e', padding: '8px 12px', borderRadius: '6px', fontSize: '10px', fontWeight: '900', cursor: 'pointer', transition: '0.3s' },
-  loadingState: { textAlign: 'center', padding: '40px', color: '#3b82f6', letterSpacing: '2px', fontSize: '12px' }
+const styles: any = {
+  appContainer: { 
+    display: 'flex', 
+    backgroundColor: '#05070a', 
+    height: '100vh', 
+    width: '100vw', // Forces full screen width
+    color: '#94a3b8', 
+    fontFamily: "'JetBrains Mono', monospace",
+    overflow: 'hidden'
+  },
+  sidebar: { 
+    width: '300px', 
+    background: '#0a0f18', 
+    borderRight: '1px solid #1e293b', 
+    padding: '40px 24px', 
+    display: 'flex', 
+    flexDirection: 'column',
+    boxShadow: '10px 0 30px rgba(0,0,0,0.5)'
+  },
+  logoHex: { 
+    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)', 
+    width: '45px', 
+    height: '45px', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    borderRadius: '12px',
+    boxShadow: '0 0 20px rgba(37, 99, 235, 0.4)'
+  },
+  brandGroup: { display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '60px' },
+  mainTitle: { fontSize: '18px', fontWeight: '900', color: '#fff', letterSpacing: '1px', margin: 0 },
+  opsText: { fontSize: '10px', color: '#3b82f6', fontWeight: 'bold', letterSpacing: '2px' },
+  navLabel: { fontSize: '10px', color: '#475569', letterSpacing: '2px', marginBottom: '20px', fontWeight: '800' },
+  navGroup: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 },
+  navBtn: { display: 'flex', alignItems: 'center', gap: '12px', background: 'transparent', border: 'none', color: '#64748b', padding: '16px', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', fontWeight: '600', transition: 'all 0.2s' },
+  activeNavBtn: { display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(37, 99, 235, 0.1)', border: 'none', color: '#3b82f6', padding: '16px', borderRadius: '12px', cursor: 'pointer', textAlign: 'left', fontWeight: 'bold', borderLeft: '4px solid #3b82f6' },
+  sidebarFooter: { borderTop: '1px solid #1e293b', paddingTop: '30px', display: 'flex', flexDirection: 'column', gap: '20px' },
+  adminCard: { display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(30, 41, 59, 0.3)', padding: '12px', borderRadius: '12px' },
+  adminName: { display: 'block', color: '#fff', fontSize: '13px', fontWeight: 'bold' },
+  adminRole: { fontSize: '9px', color: '#3b82f6', letterSpacing: '1px' },
+  logoutBtn: { background: 'transparent', border: '1px solid #334155', color: '#94a3b8', padding: '10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '11px', fontWeight: 'bold' },
+  mainArea: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  topHeader: { height: '80px', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 40px', background: '#05070a' },
+  headerStatus: { display: 'flex', alignItems: 'center', gap: '12px' },
+  statusText: { fontSize: '11px', color: '#3b82f6', fontWeight: 'bold', letterSpacing: '1px' },
+  pulseDot: { width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%', boxShadow: '0 0 12px #22c55e' },
+  clockContainer: { textAlign: 'right' },
+  clockLabel: { fontSize: '9px', color: '#475569', letterSpacing: '1px' },
+  clockValue: { fontSize: '22px', fontWeight: '900', color: '#fff', letterSpacing: '2px' },
+  contentWrapper: { flex: 1, padding: '40px', overflowY: 'auto', background: 'radial-gradient(circle at top left, #0a1120 0%, #05070a 100%)' }
 };

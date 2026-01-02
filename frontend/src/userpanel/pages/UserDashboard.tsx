@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { 
   Bell, Plane, RefreshCw, Loader2, Calendar, 
   Clock, MapPin, TrendingUp, Search, Ticket,
@@ -59,6 +59,7 @@ const UserDashboard = () => {
   const [pnr, setPnr] = useState("");
   const [activePnr, setActivePnr] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const prevCountRef = useRef<number>(0);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -72,40 +73,68 @@ const UserDashboard = () => {
   };
 
   const fetchNotifications = useCallback(async (pnrValue: string) => {
-    if (!pnrValue.trim()) return;
+    if (!pnrValue || !pnrValue.trim()) return;
     setIsLoadingNotifications(true);
     try {
-      const response = await fetch(`http://localhost:5000/notifications/${pnrValue.toUpperCase()}`);
-      const result = await response.json();
-      
-      if (result.ok && result.data.length > 0) {
-        const sortedData = result.data.sort((a: any, b: any) => 
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
-
-        if (notifications.length === 0 || sortedData.length > notifications.length) {
-          const latest = sortedData[0];
-          toast({
-            title: latest.title || "Flight Update",
-            description: latest.message,
-            variant: latest.type === 'CANCELLED' ? "destructive" : "default",
-          });
-        }
-
-        setNotifications(sortedData);
+      const res = await fetch(`/notifications/${pnrValue.toUpperCase()}`, { credentials: "include" });
+      if (!res.ok) {
+        // no data or server error; clear list and bail
+        console.warn("Notifications fetch not OK", res.status);
+        setNotifications([]);
         setLastUpdated(new Date());
+        prevCountRef.current = 0;
+        return;
       }
+
+      const result = await res.json().catch(() => null);
+      // support different response shapes
+      const data: any[] = (result && (result.data || result.notifications)) || (Array.isArray(result) ? result : []);
+      if (!Array.isArray(data) || data.length === 0) {
+        setNotifications([]);
+        setLastUpdated(new Date());
+        prevCountRef.current = 0;
+        return;
+      }
+
+      const sortedData = data.sort((a: any, b: any) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+
+      // show toast only when we have more notifications than before
+      const prevLen = prevCountRef.current || 0;
+      if (sortedData.length > prevLen) {
+        const latest = sortedData[0];
+        toast({
+          title: latest.title || "Flight Update",
+          description: latest.message,
+          variant: latest.type === 'CANCELLED' ? "destructive" : "default",
+        });
+      }
+
+      setNotifications(sortedData);
+      setLastUpdated(new Date());
+      prevCountRef.current = sortedData.length;
     } catch (error) {
       console.error("Fetch error:", error);
     } finally {
       setIsLoadingNotifications(false);
     }
-  }, [notifications, toast]);
+  }, [toast]);
 
   useEffect(() => {
     if (!activePnr) return;
     const interval = setInterval(() => fetchNotifications(activePnr), POLLING_INTERVAL);
     return () => clearInterval(interval);
+  }, [activePnr, fetchNotifications]);
+
+  // react to admin-side in-app notifications (local fallback)
+  useEffect(() => {
+    const handler = (e: any) => {
+      // when admin publishes a flight-notification, refetch current active PNR
+      if (activePnr) fetchNotifications(activePnr);
+    };
+    window.addEventListener("flight-notification", handler);
+    return () => window.removeEventListener("flight-notification", handler);
   }, [activePnr, fetchNotifications]);
 
   const handlePnrSearch = (e: React.FormEvent) => {
