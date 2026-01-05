@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UdaanSathi</title>
     <script>
-      const redirect = window.location.pathname
-        .replace('/Uddan-Sathi', '');
-      window.location.replace(
-        '/Uddan-Sathi/?redirect=' + redirect
-      );
+      // SPA redirect for Vercel - redirect all 404s to index with the path
+      sessionStorage.setItem('redirect', window.location.pathname);
+      window.location.replace('/');
     </script>
   </head>
   <body></body>
