@@ -330,7 +330,7 @@ export default function AdminDashboard() {
 						>
 							{sidebarCollapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
 						</button>
-						<UserButton afterSignOutUrl="/" />
+						<UserButton afterSignOutUrl="/Uddan-Sathi/" />
 					</div>
 				</div>
 			</header>

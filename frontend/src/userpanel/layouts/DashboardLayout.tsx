@@ -110,7 +110,7 @@ const DashboardLayout = () => {
                   {user?.publicMetadata?.role === 'admin' ? 'Ops Center Admin' : 'Passenger'}
                 </p>
               </div>
-              <UserButton afterSignOutUrl="/" />
+              <UserButton afterSignOutUrl="/Uddan-Sathi/" />
             </div>
           </div>
         </header>

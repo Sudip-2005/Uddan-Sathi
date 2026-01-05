@@ -53,13 +53,13 @@ export default function AdminDashboard() {
 
         <div style={styles.sidebarFooter}>
             <div style={styles.adminCard}>
-                <UserButton afterSignOutUrl="/" />
+                <UserButton afterSignOutUrl="/Uddan-Sathi/" />
                 <div style={styles.adminInfo}>
                     <span style={styles.adminName}>{user?.firstName || "Admin"}</span>
                     <span style={styles.adminRole}>SYSTEM COMMANDER</span>
                 </div>
             </div>
-            <button style={styles.logoutBtn} onClick={() => window.location.href='/'}>
+            <button style={styles.logoutBtn} onClick={() => window.location.href='/Uddan-Sathi/'}>
                 <LogOut size={16} /> EXIT TERMINAL
             </button>
         </div>

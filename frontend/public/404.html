@@ -5,21 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>UdaanSathi</title>
     <script>
-      // GitHub Pages SPA redirect
-      // Save the full path and redirect to index.html
-      (function() {
-        var repo = '/Uddan-Sathi';
-        var fullPath = window.location.pathname;
-        
-        // Remove repo prefix to get the actual route
-        var route = fullPath.replace(repo, '') || '/';
-        
-        // Store the route in sessionStorage
-        sessionStorage.setItem('gh-pages-redirect', route + window.location.search + window.location.hash);
-        
-        // Redirect to the base URL
-        window.location.replace(repo + '/');
-      })();
+      // Simple redirect to base URL - HashRouter handles the rest
+      window.location.replace('/Uddan-Sathi/');
     </script>
   </head>
   <body>
