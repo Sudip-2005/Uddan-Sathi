@@ -21,7 +21,7 @@
 
 ## 📖 Overview
 
-**UdaanSathi** (उड़ान साथी - Flight Companion) is a next-generation travel booking platform that goes beyond simple flight reservations. Built for modern travelers, it combines intelligent booking systems with AI-powered crisis management to ensure seamless travel experiences even during disruptions.
+**UdaanSathi** is a next-generation travel booking platform that goes beyond simple flight reservations. Built for modern travelers, it combines intelligent booking systems with AI-powered crisis management to ensure seamless travel experiences even during disruptions.
 
 ### 🎯 Problem Statement
 
@@ -636,42 +636,9 @@ We welcome contributions! Follow these steps:
 
 ---
 
-## 📄 License
-
-This project is licensed under the **MIT License**.
-
-```
-MIT License
-
-Copyright (c) 2026 UdaanSathi Team
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
 
 ---
 
-## 👥 Team
-
-- **Your Name** - Lead Developer - [GitHub](https://github.com/yourusername)
-- **Contributors** - See [CONTRIBUTORS.md](CONTRIBUTORS.md)
-
----
 
 ## 🙏 Acknowledgments
 
@@ -687,10 +654,10 @@ SOFTWARE.
 ## 📞 Support
 
 For questions or issues:
-- 📧 Email: support@udaansathi.com
-- 💬 Discord: [Join our server](https://discord.gg/udaansathi)
-- 🐛 GitHub Issues: [Report bugs](https://github.com/yourusername/udaansathi/issues)
-- 📖 Documentation: [Read the docs](https://docs.udaansathi.com)
+- 📧 Email: smadhu.882005@gmail.com
+- 💬 Discord: [Join our server](https://discord.gg/Sudip)
+- 🐛 GitHub Issues: [Report bugs](https://github.com/Sudip-2005/udaansathi/issues)
+
 
 ---
 
@@ -702,7 +669,7 @@ If you find this project useful, please consider giving it a star! ⭐
 
 <div align="center">
 
-**Built with ❤️ by the UdaanSathi Team**
+**Built with ❤️ by Out of Bounds**
 
 [![GitHub stars](https://img.shields.io/github/stars/yourusername/udaansathi?style=social)](https://github.com/yourusername/udaansathi)
 [![GitHub forks](https://img.shields.io/github/forks/yourusername/udaansathi?style=social)](https://github.com/yourusername/udaansathi)
