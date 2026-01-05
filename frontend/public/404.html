@@ -5,10 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>UdaanSathi</title>
     <script>
-      // SPA redirect for Vercel - redirect all 404s to index with the path
-      sessionStorage.setItem('redirect', window.location.pathname);
-      window.location.replace('/');
+      // GitHub Pages SPA redirect
+      // Save the full path and redirect to index.html
+      (function() {
+        var repo = '/Uddan-Sathi';
+        var fullPath = window.location.pathname;
+        
+        // Remove repo prefix to get the actual route
+        var route = fullPath.replace(repo, '') || '/';
+        
+        // Store the route in sessionStorage
+        sessionStorage.setItem('gh-pages-redirect', route + window.location.search + window.location.hash);
+        
+        // Redirect to the base URL
+        window.location.replace(repo + '/');
+      })();
     </script>
   </head>
-  <body></body>
+  <body>
+    <p>Redirecting...</p>
+  </body>
 </html>

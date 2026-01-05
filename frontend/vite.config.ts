@@ -5,8 +5,8 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
 
-  // Use "/" for Vercel, use "/Uddan-Sathi/" for GitHub Pages
-  base: "/",
+  // GitHub Pages deployment - repo name as base path
+  base: "/Uddan-Sathi/",
 
   resolve: {
     alias: {

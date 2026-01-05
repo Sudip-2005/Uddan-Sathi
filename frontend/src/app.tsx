@@ -23,16 +23,21 @@ import TravelAssistant from "./userpanel/components/TravelAssistant";
 const CLERK_PUBLISHABLE_KEY = (import.meta as any).env?.VITE_CLERK_PUBLISHABLE_KEY;
 const API_URL = (import.meta as any).env?.VITE_API_URL || "http://localhost:5000";
 
+// GitHub Pages base path
+const BASE_PATH = import.meta.env.BASE_URL || "/";
+
 if (!CLERK_PUBLISHABLE_KEY) {
   throw new Error("Missing Clerk Publishable Key. Check your .env file.");
 }
 
-const params = new URLSearchParams(window.location.search);
-const redirect = params.get("redirect");
-
-if (redirect) {
-  window.history.replaceState(null, "", redirect);
-}
+// GitHub Pages SPA redirect - check for stored path
+(function() {
+  const redirect = sessionStorage.getItem('gh-pages-redirect');
+  if (redirect) {
+    sessionStorage.removeItem('gh-pages-redirect');
+    window.history.replaceState(null, '', redirect);
+  }
+})();
 
 function App() {
   // Patch global fetch so relative requests (e.g. "/flights") are forwarded to API_URL
@@ -86,7 +91,7 @@ function App() {
 
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
-      <Router>
+      <Router basename={BASE_PATH}>
         <Routes>
           {/* 1. Public Route - Cinematic Landing Page */}
           <Route path="/" element={<LandingPage />} />
