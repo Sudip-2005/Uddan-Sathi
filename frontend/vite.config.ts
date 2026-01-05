@@ -4,6 +4,10 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react()],
+
+  
+  base: "/Uddan-Sathi/",
+
   resolve: {
     alias: {
       // Use path.join for better cross-platform (Windows/Mac) support
