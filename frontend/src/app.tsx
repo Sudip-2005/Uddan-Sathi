@@ -27,6 +27,13 @@ if (!CLERK_PUBLISHABLE_KEY) {
   throw new Error("Missing Clerk Publishable Key. Check your .env file.");
 }
 
+const params = new URLSearchParams(window.location.search);
+const redirect = params.get("redirect");
+
+if (redirect) {
+  window.history.replaceState(null, "", redirect);
+}
+
 function App() {
   // Patch global fetch so relative requests (e.g. "/flights") are forwarded to API_URL
   useEffect(() => {
