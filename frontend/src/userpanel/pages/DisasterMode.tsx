@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Banknote, ShieldCheck, RefreshCw, Search, Check, Clock } from "lucide-react";
 import { getFlightsByAirport, finalizeRefund } from "../services/api";
+import { useNotifications } from "../services/notificationService";
 
 type Refund = {
   passenger_id: string;
@@ -29,6 +30,8 @@ export default function RefundManager(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const API_BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+
+  const { notifications } = useNotifications();
 
   useEffect(() => { fetchFlights(); }, [airport]);
 
@@ -63,44 +66,27 @@ export default function RefundManager(): React.ReactElement {
     setError(null);
     setLoadingRefunds(true);
     try {
-      console.log(`🔍 Fetching refunds for ${airport}/${flight}`);
-      
-      const res = await fetch(`${API_BASE}/api/refund_requests/${airport}/${flight}`, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json"
-        }
-      });
-      
-      console.log(`📡 Response status: ${res.status}`);
-      
+      const res = await fetch(`${API_BASE}/api/refund_requests/${airport}/${flight}`);
       if (!res.ok) {
-        const errorText = await res.text();
-        console.error(`❌ Error response:`, errorText);
         throw new Error(`Failed to fetch refunds (${res.status})`);
       }
-      
       const items = await res.json();
-      console.log(`✅ Received data:`, items);
-      
       // backend returns an array of passenger objects
       const mapped = Array.isArray(items) ? items.map((it: any) => ({
-        passenger_id: it.passenger_id || it.pnr,
-        name: it.name || "Unknown",
-        pnr: it.pnr || it.passenger_id,
-        reason: it.reason || "Refund",
-        amount: Number(it.amount) || 0,
-        upi_id: it.upi_id || "",
-        status: it.status || "pending",
-        timestamp: it.timestamp
+        passenger_id: it.passenger_id || it.passengerId || it.pnr || it.id,
+        name: it.name,
+        pnr: it.pnr,
+        reason: it.reason,
+        amount: (it.amount === undefined || it.amount === null) ? 0 : Number(it.amount),
+        upi_id: it.upi_id || it.upi,
+        status: it.status,
+        // keep raw for any extra fields
+        __raw: it
       })) : [];
-      
-      console.log(`📊 Mapped ${mapped.length} records`);
       setRefunds(mapped);
     } catch (e) {
-      console.error("❌ fetchRefunds error:", e);
-      setError("Failed to load refund requests. Check console for details.");
+      console.error(e);
+      setError("Failed to load refund requests.");
       setRefunds([]);
     } finally {
       setLoadingRefunds(false);

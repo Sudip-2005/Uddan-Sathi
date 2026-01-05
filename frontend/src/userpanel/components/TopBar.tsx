@@ -7,6 +7,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import NotificationCard from "./NotificationCard";
+import { Notification } from "../services/notificationService";
 
 interface TopBarProps {
   userName?: string;
@@ -15,6 +17,34 @@ interface TopBarProps {
 }
 
 const TopBar = ({ userName = "Passenger", onLogout, notificationCount = 0 }: TopBarProps) => {
+  // Demo notifications for the web app
+  const demoNotifications: Notification[] = [
+    {
+      id: "1",
+      pnr: "demo",
+      type: "info",
+      message: "Welcome to UdaanSathi! Your travel companion is now active.",
+      timestamp: new Date().toISOString(),
+      read: false,
+    },
+    {
+      id: "2",
+      pnr: "demo",
+      type: "info",
+      message: "New feature: Real-time flight tracking is now available.",
+      timestamp: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+      read: false,
+    },
+    {
+      id: "3",
+      pnr: "demo",
+      type: "warning",
+      message: "Don't forget to check your booking details before travel.",
+      timestamp: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
+      read: false,
+    },
+  ];
+
   return (
     <header className="sticky top-0 z-30 h-16 bg-card border-b border-border flex items-center justify-between px-4 lg:px-6">
       {/* Left - Page title area (for mobile spacing) */}
@@ -31,14 +61,34 @@ const TopBar = ({ userName = "Passenger", onLogout, notificationCount = 0 }: Top
       {/* Right - Actions */}
       <div className="flex items-center gap-2">
         {/* Notifications */}
-        <Button variant="ghost" size="sm" className="relative">
-          <Bell className="h-5 w-5" />
-          {notificationCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
-              {notificationCount > 9 ? '9+' : notificationCount}
-            </span>
-          )}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="relative">
+              <Bell className="h-5 w-5" />
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+            <div className="px-2 py-1.5 text-sm font-semibold text-foreground">
+              Notifications
+            </div>
+            <DropdownMenuSeparator />
+            {demoNotifications.map((notification) => (
+              <div key={notification.id} className="px-2 py-1">
+                <NotificationCard notification={notification} />
+              </div>
+            ))}
+            {demoNotifications.length === 0 && (
+              <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                No new notifications
+              </div>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* User Menu */}
         <DropdownMenu>

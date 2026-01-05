@@ -12,7 +12,7 @@ import FlightSearchPage from "./userpanel/pages/FlightSearchPage";
 import MyBookingsPage from "./userpanel/pages/MyBookingsPage";
 import AssistancePage from "./userpanel/pages/AssistancePage";
 import DisasterModePage from "./userpanel/pages/DisasterModePage";
-import WelcomePage from "./userpanel/pages/WelcomePage"; 
+import LandingPage from "./userpanel/pages/LandingPage"; // New cinematic landing page
 import AdminDashboard from "./userpanel/pages/AdminDashboard";
 import AlternativeFlights from "./userpanel/pages/AlternativeFlights";
 import AlternativeTrains from "./userpanel/pages/AlternativeTrains";
@@ -81,8 +81,8 @@ function App() {
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
       <Router>
         <Routes>
-          {/* 1. Public Route */}
-          <Route path="/" element={<WelcomePage />} />
+          {/* 1. Public Route - Cinematic Landing Page */}
+          <Route path="/" element={<LandingPage />} />
 
           {/* 2. Protected User Routes wrapped in DashboardLayout (for passengers) or bare Outlet (for admins) */}
           <Route

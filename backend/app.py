@@ -151,6 +151,7 @@ def get_flights():
         print(f"CRITICAL ERROR in /flights: {e}")
         traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
+    
 
 # --- 2. Search Flights by Route (Optimized Pathing) ---
 @app.route("/flights/search", methods=["GET"])
@@ -492,6 +493,147 @@ def process_refund(flight_id, pax_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# --- New: read refund_requests node so admin can see user-submitted requests (amounts, reason, upi, etc.) ---
+
+from flask import make_response
+
+# HELPER FUNCTION FOR CORS - MUST BE DEFINED BEFORE ROUTES THAT USE IT
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
+
+# HELPER: Local fallback for refund data (returns empty dict if no local file)
+def _read_local_refunds():
+    """Returns local refund data from file if Firebase is unavailable."""
+    try:
+        local_path = os.path.join(os.path.dirname(__file__), "local_refunds.json")
+        if os.path.exists(local_path):
+            with open(local_path, "r") as f:
+                return json.load(f)
+    except Exception as e:
+        app.logger.debug("Local refunds file not available: %s", e)
+    return {}
+
+# =============================================================================
+# REFUND ROUTES - Supporting both /api/refunds/* and /api/refund_requests/*
+# =============================================================================
+
+# Route 1: List flights with refund requests for an airport (e.g., /api/refunds/DEL)
+@app.route("/api/refunds/<airport_code>", methods=["GET", "OPTIONS"], strict_slashes=False)
+@app.route("/api/refund_requests/<airport_code>", methods=["GET", "OPTIONS"], strict_slashes=False)
+def list_refund_flights_by_airport(airport_code):
+    if request.method == "OPTIONS":
+        res = make_response("", 200)
+        return add_cors_headers(res)
+    
+    try:
+        ref = safe_ref(f"refund_requests/{airport_code.upper()}")
+        data = ref.get() or {}
+        result = []
+        if isinstance(data, dict):
+            for flight_id, pax_map in data.items():
+                count = len(pax_map) if isinstance(pax_map, dict) else 0
+                result.append({"flight_id": flight_id, "count": count})
+        
+        return add_cors_headers(jsonify(result)), 200
+    except Exception as e:
+        app.logger.exception("list_refund_flights_by_airport error: %s", e)
+        return add_cors_headers(jsonify({"error": str(e)})), 500
+
+# Route 2: Get refund requests for a specific flight (e.g., /api/refunds/DEL/QR621)
+@app.route("/api/refunds/<airport_code>/<flight_id>", methods=["GET", "OPTIONS"], strict_slashes=False)
+@app.route("/api/refund_requests/<airport_code>/<flight_id>", methods=["GET", "OPTIONS"], strict_slashes=False)
+def get_refund_requests_by_flight(airport_code, flight_id):
+    app.logger.info("🚀 HIT: Manifest for %s/%s", airport_code, flight_id)
+    
+    # --- PREFLIGHT CORS FIX ---
+    if request.method == "OPTIONS":
+        res = make_response("", 200)
+        return add_cors_headers(res)
+
+    airport_code = (airport_code or "").upper()
+    flight_id = str(flight_id).upper()
+    
+    try:
+        result = []
+        
+        # PRIMARY SOURCE: Firebase refund_requests/{airport}/{flight}
+        # Structure: refund_requests/DEL/QR621/{push_id}/{data}
+        try:
+            rref = safe_ref(f"refund_requests/{airport_code}/{flight_id}")
+            rdata = rref.get() or {}
+            app.logger.info("📦 Firebase data for %s/%s: %s", airport_code, flight_id, rdata)
+            
+            if isinstance(rdata, dict):
+                for push_id, details in rdata.items():
+                    # Direct structure: push_id -> {amount, name, pnr, reason, status, timestamp, upi_id}
+                    if isinstance(details, dict):
+                        result.append({
+                            "passenger_id": str(push_id),
+                            "name": details.get("name", "Unknown"),
+                            "pnr": details.get("pnr") or push_id,
+                            "amount": details.get("amount", 0),
+                            "upi_id": details.get("upi_id", ""),
+                            "reason": details.get("reason", "Refund request"),
+                            "status": details.get("status", "pending"),
+                            "timestamp": details.get("timestamp")
+                        })
+        except Exception as fb_exc:
+            app.logger.exception("Firebase read failed: %s", fb_exc)
+
+        # LOCAL FALLBACK
+        if not result:
+            local = _read_local_refunds()
+            flight_map = local.get(airport_code, {}).get(flight_id, {}) if isinstance(local, dict) else {}
+            for pax_id, details in (flight_map.items() if isinstance(flight_map, dict) else []):
+                result.append({
+                    "passenger_id": str(pax_id),
+                    "name": details.get("name", "Unknown"),
+                    "pnr": details.get("pnr") or pax_id,
+                    "amount": details.get("amount", 0),
+                    "upi_id": details.get("upi_id", ""),
+                    "reason": details.get("reason", "Refund request"),
+                    "status": details.get("status", "pending"),
+                    "timestamp": details.get("timestamp")
+                })
+
+        result.sort(key=lambda x: (x.get("passenger_id") or ""))
+        app.logger.info("✅ Returning %d refund requests", len(result))
+        
+        return add_cors_headers(jsonify(result)), 200
+        
+    except Exception as e:
+        app.logger.exception("get_refund_requests_by_flight error: %s", e)
+        return add_cors_headers(jsonify({"error": str(e)})), 500
+
+# Route 3: Finalize/delete a refund request
+@app.route("/api/refunds/<airport_code>/<flight_id>/<passenger_id>", methods=["DELETE", "OPTIONS"], strict_slashes=False)
+@app.route("/api/refund_requests/<airport_code>/<flight_id>/<passenger_id>", methods=["DELETE", "OPTIONS"], strict_slashes=False)
+def finalize_refund_request(airport_code, flight_id, passenger_id):
+    if request.method == "OPTIONS":
+        res = make_response("", 200)
+        return add_cors_headers(res)
+    
+    try:
+        airport = airport_code.upper()
+        flight = flight_id.upper()
+        pax = passenger_id
+        
+        # Delete the refund request from Firebase
+        path = f"refund_requests/{airport}/{flight}/{pax}"
+        ref = safe_ref(path)
+        ref.delete()
+        
+        app.logger.info(f"✅ Finalized and deleted refund at {path}")
+        return add_cors_headers(jsonify({"ok": True, "message": "Refund processed"})), 200
+        
+    except Exception as e:
+        app.logger.exception(f"❌ finalize_refund error: {e}")
+        return add_cors_headers(jsonify({"error": str(e)})), 500
+
 # --- Helpers: flight record access and notifications (Realtime DB fallback) ---
 def get_flight_record(airport: str, flight_id: str):
     """
@@ -602,101 +744,51 @@ def flight_item(airport, flight_id):
 
     return jsonify({"ok": False, "error": "Method not allowed"}), 405
 
-@app.route("/api/refunds/submit", methods=["POST"])
+from flask import make_response
+
+# Helper to add CORS to any response
+def add_cors(res):
+    res.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+    res.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    res.headers["Access-Control-Allow-Credentials"] = "true"
+    return res
+
+@app.route("/api/refunds/submit", methods=["POST", "OPTIONS"])
 def submit_refund():
+    if request.method == "OPTIONS":
+        return add_cors(make_response("", 200))
+    
     try:
-        # use local constant to avoid reliance on global ROOT
-        target_root = "refund_requests"
-
         payload = request.get_json(force=True)
-        airport = payload.get("airport_code")
-        flight = payload.get("flight_id")
-        pax = payload.get("passenger_id")
-        if not all([airport, flight, pax]):
-            return jsonify({"error": "airport_code, flight_id and passenger_id are required"}), 400
+        airport = (payload.get("airport_code") or "").upper()
+        flight = (payload.get("flight_id") or "").upper()
+        pax = (payload.get("passenger_id") or "").upper()
 
-        path = f"{target_root}/{airport}/{flight}/{pax}"
-        ref = safe_ref(path)
+        if not all([airport, flight, pax]):
+            return add_cors(jsonify({"error": "Missing fields"})), 400
+
         data = {
             "name": payload.get("name", ""),
-            "pnr": payload.get("pnr", ""),
+            "pnr": payload.get("pnr", pax),
             "upi_id": payload.get("upi_id", ""),
             "amount": payload.get("amount", 0),
-            "status": payload.get("status", "pending"),
-            "reason": payload.get("reason", ""),
+            "status": "pending",
             "timestamp": int(time.time() * 1000),
         }
+
+        # Saving to Airport/Flight/PNR to match your new structure
+        ref = safe_ref(f"refund_requests/{airport}/{flight}/{pax}")
         ref.set(data)
-        return jsonify({"ok": True, "path": path}), 201
+        
+        return add_cors(jsonify({"ok": True})), 201
     except Exception as e:
-        app.logger.exception("submit_refund error: %s", e)
-        return jsonify({"error": str(e)}), 500
+        return add_cors(jsonify({"error": str(e)})), 500
 
-@app.route("/api/refunds/<airport_code>", methods=["GET"])
-def list_flights_by_airport(airport_code):
-    try:
-        # Read exclusively from cancelled_flights and filter by source matching airport_code
-        flights_map = {}  # flight_id -> passenger count
+# NOTE: Duplicate route removed - using get_refund_requests_by_flight at line 522 instead
 
-        try:
-            cancelled_ref = db.reference("cancelled_flights")
-            cancelled = cancelled_ref.get() or {}
-            if isinstance(cancelled, dict):
-                for f_id, flight_info in cancelled.items():
-                    # Determine source airport from archived data fields
-                    src = None
-                    if isinstance(flight_info, dict):
-                        src = (flight_info.get("source") or flight_info.get("origin") or flight_info.get("source_code") or "").upper()
-                    if src == airport_code.upper():
-                        passengers = flight_info.get("passengers") or {}
-                        count = len(passengers) if isinstance(passengers, dict) else 0
-                        flights_map[str(f_id)] = flights_map.get(str(f_id), 0) + count
-        except Exception as e:
-            app.logger.warning("Could not read cancelled_flights: %s", e)
-
-        # build result array expected by frontend: [{ flight_id, count }]
-        result = [{"flight_id": fid, "count": cnt} for fid, cnt in flights_map.items()]
-
-        app.logger.info("Found %d archived flights for %s", len(result), airport_code)
-        return jsonify(result), 200
-    except Exception as e:
-        app.logger.exception("list_flights_by_airport error: %s", e)
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/api/refunds/<airport_code>/<flight_id>", methods=["GET"])
-def get_refunds_by_flight(airport_code, flight_id):
-    try:
-        items = []
-
-        # Primary source: cancelled_flights/{flight_id}/passengers
-        try:
-            cancel_pass_ref = db.reference(f"cancelled_flights/{flight_id}/passengers")
-            pax_map = cancel_pass_ref.get() or {}
-            if isinstance(pax_map, dict):
-                for pax_id, details in pax_map.items():
-                    if not isinstance(details, dict):
-                        continue
-                    items.append({
-                        "passenger_id": pax_id,
-                        "name": details.get("name"),
-                        "pnr": details.get("pnr"),
-                        # normalize upi key to upi_id for frontend
-                        "upi_id": details.get("upi_id") or details.get("upi") or details.get("payment_target"),
-                        "amount": details.get("amount"),
-                        "status": details.get("status"),
-                        "reason": details.get("reason")
-                    })
-        except Exception as e:
-            app.logger.warning("Could not read cancelled_flights passengers for flight %s: %s", flight_id, e)
-
-        return jsonify(items), 200
-    except Exception as e:
-        app.logger.exception("get_refunds_by_flight error: %s", e)
-        return jsonify({"error": str(e)}), 500
-
-# Ensure the app runs when executing the script directly
+# --- MAIN EXECUTION ---
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     host = "0.0.0.0"
-    app.logger.info(f"Starting Flask app on http://{host}:{port} (PID: {os.getpid()})")
-    app.run(host=host, port=port)
+    app.run(host=host, port=port, debug=True)
