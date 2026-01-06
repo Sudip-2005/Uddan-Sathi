@@ -28,7 +28,12 @@ app = Flask(__name__)
 
 # Configure CORS to allow your specific frontend and enable credentials
 CORS(app, 
-     resources={r"/*": {"origins": ["http://localhost:5173"]}}, 
+     resources={r"/*": {"origins": [
+         "http://localhost:5173",
+         "http://localhost:5174",
+         "https://uddan-sathi.vercel.app",
+         "https://udaan-sathi.vercel.app"
+     ]}}, 
      supports_credentials=True)
 
 # Set up logging to track cancellation requests
