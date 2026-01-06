@@ -37,8 +37,8 @@ jobs:
         working-directory: ./frontend
         env:
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
-          VITE_CLERK_SIGN_IN_FORCE_REDIRECT_URL: /dashboard
-          VITE_CLERK_SIGN_UP_FORCE_REDIRECT_URL: /dashboard
+          VITE_CLERK_SIGN_IN_FORCE_REDIRECT_URL: /Uddan-Sathi/#/user/dashboard
+          VITE_CLERK_SIGN_UP_FORCE_REDIRECT_URL: /Uddan-Sathi/#/user/dashboard
           VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
           VITE_TRAIN_API_KEY: ${{ secrets.VITE_TRAIN_API_KEY }}
           VITE_GEOAPIFY_KEY: ${{ secrets.VITE_GEOAPIFY_KEY }}
