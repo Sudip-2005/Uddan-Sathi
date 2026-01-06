@@ -7,7 +7,7 @@ export default function NotificationSystem({ pnr }: { pnr: string }) {
     const checkAlerts = async () => {
       try {
         // Calling your Flask backend
-        const response = await fetch(`http://localhost:5000/notifications/${pnr}`);
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/notifications/${pnr}`);
         const result = await response.json();
         if (result.ok) {
           setNotifications(result.data);

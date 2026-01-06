@@ -27,7 +27,7 @@ const DisasterAlert = ({ cancellations, className }: DisasterAlertProps) => {
   const [submitStatus, setSubmitStatus] = useState<Record<string, string>>({}); // Success messages
   const [isMinimized, setIsMinimized] = useState(false);
   
-  const API_BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+  const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
   const openRefundForm = (notification: Notification) => {
     const pnr = notification.pnr || notification.id || "";

@@ -21,7 +21,7 @@ import TravelAssistant from "./userpanel/components/TravelAssistant";
 
 // Environment Variable Check
 const CLERK_PUBLISHABLE_KEY = (import.meta as any).env?.VITE_CLERK_PUBLISHABLE_KEY;
-const API_URL = (import.meta as any).env?.VITE_API_URL || "http://localhost:5000";
+const API_URL = (import.meta as any).env?.VITE_BACKEND_URL;
 
 if (!CLERK_PUBLISHABLE_KEY) {
   throw new Error("Missing Clerk Publishable Key. Check your .env file.");

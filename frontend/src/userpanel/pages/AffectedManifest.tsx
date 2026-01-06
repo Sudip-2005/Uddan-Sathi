@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
 type CancelledFlight = {
   flight_id: string;

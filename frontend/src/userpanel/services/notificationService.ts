@@ -1,6 +1,5 @@
 // Notification Service - Handles all notification-related API calls
-declare const process: any;
-const API_BASE_URL = (typeof process !== 'undefined' && process.env?.VITE_API_BASE_URL) || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
 export interface Notification {
   id: string;

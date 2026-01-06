@@ -25,7 +25,7 @@ const AlternativeFlights = () => {
   useEffect(() => {
     const fetchAlternatives = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/flights/search?source=${source}&destination=${destination}`);
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/flights/search?source=${source}&destination=${destination}`);
         const result = await response.json();
         if (result.ok) {
           // Filter out the disrupted flight and show others

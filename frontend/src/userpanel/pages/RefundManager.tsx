@@ -28,7 +28,7 @@ export default function RefundManager(): React.ReactElement {
   const [loadingRefunds, setLoadingRefunds] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const API_BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+  const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => { fetchFlights(); }, [airport]);
 

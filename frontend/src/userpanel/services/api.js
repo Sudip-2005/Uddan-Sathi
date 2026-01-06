@@ -1,7 +1,7 @@
 // src/services/api.js
 
-const BASE_URL = "http://localhost:5000";
-const API_BASE = import.meta.env.REACT_APP_API_URL || "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
 /**
  * Generic fetch function with error handling
@@ -64,15 +64,14 @@ export async function addFlight(flight) {
 }
 
 // --- ADD THESE TO api.js ---
-const API_URL = "http://localhost:5000"; // Ensure this matches your Flask port
 
 export const getRefundRequests = async () => {
-    const response = await fetch(`${API_URL}/api/refunds`);
+    const response = await fetch(`${BASE_URL}/api/refunds`);
     return await response.json();
 };
 
 export const completeRefund = async (flightId, paxId) => {
-    const response = await fetch(`${API_URL}/api/refunds/${flightId}/${paxId}`, {
+    const response = await fetch(`${BASE_URL}/api/refunds/${flightId}/${paxId}`, {
         method: 'DELETE',
     });
     return await response.json();

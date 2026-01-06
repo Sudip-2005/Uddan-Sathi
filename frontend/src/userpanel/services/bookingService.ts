@@ -1,7 +1,5 @@
 // Booking Service - Handles all booking-related API calls
-const API_BASE_URL =
-  (typeof process !== 'undefined' && (process.env as any)?.VITE_API_BASE_URL) ||
-  'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
 export interface Booking {
   pnr: string;

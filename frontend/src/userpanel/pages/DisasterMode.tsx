@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Banknote, ShieldCheck, RefreshCw, Search, Check, Clock } from "lucide-react";
 import { getFlightsByAirport, finalizeRefund } from "../services/api";
-import { useNotifications } from "../services/notificationService";
 
 type Refund = {
   passenger_id: string;
@@ -29,9 +28,9 @@ export default function RefundManager(): React.ReactElement {
   const [loadingRefunds, setLoadingRefunds] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const API_BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+  const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
-  const { notifications } = useNotifications();
+  // Remove the useNotifications hook call as it doesn't exist
 
   useEffect(() => { fetchFlights(); }, [airport]);
 

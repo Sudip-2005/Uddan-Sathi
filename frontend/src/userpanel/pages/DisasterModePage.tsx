@@ -68,7 +68,7 @@ const DisasterModePage = () => {
         
         // Try to fetch flight details from notifications
         try {
-          const response = await fetch(`http://localhost:5000/notifications/${storedPnr}`);
+          const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/notifications/${storedPnr}`);
           const result = await response.json().catch(() => null);
           
           if (result?.ok && Array.isArray(result.data) && result.data.length > 0) {
@@ -139,7 +139,7 @@ const DisasterModePage = () => {
         status: "pending"
       };
 
-      const response = await fetch("http://localhost:5000/api/refunds/submit", {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/refunds/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
