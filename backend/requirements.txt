@@ -13,7 +13,7 @@ requests==2.31.0
 
 # Additional utilities
 Werkzeug==3.0.1
-reportlab==4.0.2
+reportlab==4.0.7
 
 # Production server (REQUIRED)
 gunicorn==21.2.0
