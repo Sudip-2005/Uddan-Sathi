@@ -44,27 +44,37 @@ ROOT = "refund_requests"
 
 # --- UPDATED INITIALIZATION ---
 FIREBASE_CRED_PATH = os.environ.get("FIREBASE_CRED_PATH")
+FIREBASE_CRED_JSON = os.environ.get("FIREBASE_CREDENTIALS_JSON")  # For Render deployment
 DATABASE_URL = os.environ.get("FIREBASE_DATABASE_URL")
 
 FIREBASE_INITIALIZED = False
 
-# 1. Check if the path exists first
-if FIREBASE_CRED_PATH and os.path.exists(FIREBASE_CRED_PATH):
-    try:
-        if not firebase_admin._apps:
-            cred = credentials.Certificate(FIREBASE_CRED_PATH)
-            firebase_admin.initialize_app(cred, {"databaseURL": DATABASE_URL})
+# Try to initialize Firebase from either file path OR JSON environment variable
+try:
+    if not firebase_admin._apps:
+        cred = None
         
-        # Mark Firebase as initialized so other helpers can use it
-        FIREBASE_INITIALIZED = True
-        app.logger.info(f"✅ Firebase initialized using: {FIREBASE_CRED_PATH}")
-    except Exception as e:
-        app.logger.error(f"❌ Failed to load certificate: {e}")
-else:
-    # 2. If path is wrong, print EXACTLY what the app is seeing
-    app.logger.error("CRITICAL: Firebase Credentials not found!")
-    app.logger.error(f"Looking for file at: '{FIREBASE_CRED_PATH}'")
-    app.logger.error("Check your .env file and ensure the path is absolute (e.g., C:\\Users\\...)")
+        # Option 1: Use JSON from environment variable (for Render/production)
+        if FIREBASE_CRED_JSON:
+            import json
+            cred_dict = json.loads(FIREBASE_CRED_JSON)
+            cred = credentials.Certificate(cred_dict)
+            app.logger.info("✅ Firebase initialized from FIREBASE_CREDENTIALS_JSON env var")
+        
+        # Option 2: Use file path (for local development)
+        elif FIREBASE_CRED_PATH and os.path.exists(FIREBASE_CRED_PATH):
+            cred = credentials.Certificate(FIREBASE_CRED_PATH)
+            app.logger.info(f"✅ Firebase initialized from file: {FIREBASE_CRED_PATH}")
+        
+        if cred:
+            firebase_admin.initialize_app(cred, {"databaseURL": DATABASE_URL})
+            FIREBASE_INITIALIZED = True
+        else:
+            app.logger.error("CRITICAL: Firebase Credentials not found!")
+            app.logger.error("Set either FIREBASE_CREDENTIALS_JSON or FIREBASE_CRED_PATH")
+            
+except Exception as e:
+    app.logger.error(f"❌ Failed to initialize Firebase: {e}")
 
 # --- UPDATED HELPERS ---
 
