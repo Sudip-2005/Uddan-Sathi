@@ -788,7 +788,7 @@ def submit_refund():
 # NOTE: Duplicate route removed - using get_refund_requests_by_flight at line 522 instead
 
 # --- MAIN EXECUTION ---
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    host = "0.0.0.0"
-    app.run(host=host, port=port, debug=True)
+# if __name__ == "__main__":
+    # port = int(os.environ.get("PORT", 5000))
+    # host = "0.0.0.0"
+    # app.run(host=host, port=port, debug=True)
