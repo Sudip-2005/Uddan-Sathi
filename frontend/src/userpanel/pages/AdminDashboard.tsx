@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useUser, UserButton } from "@clerk/clerk-react";
-import { Bot, Plane, Banknote, ShieldAlert, Zap, LayoutDashboard, LogOut } from "lucide-react";
+import { Bot, Plane, Banknote, ShieldAlert, Zap, LayoutDashboard, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import FlightControl from "./FlightControl";
 import DisasterManifest from "./AffectedManifest";
 import RefundManager from "./RefundManager";
@@ -9,6 +9,7 @@ export default function AdminDashboard() {
   const { user } = useUser();
   const [activeTab, setActiveTab] = React.useState("FLIGHTS");
   const [currentTime, setCurrentTime] = React.useState(new Date());
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
 
   React.useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -18,49 +19,111 @@ export default function AdminDashboard() {
   return (
     <div style={styles.appContainer}>
       {/* --- MAIN ADMIN SIDEBAR (Now the ONLY sidebar) --- */}
-      <aside style={styles.sidebar}>
+      <aside style={{
+        ...styles.sidebar,
+        width: isSidebarCollapsed ? '80px' : '300px',
+        transition: 'width 0.3s ease',
+        position: 'relative'
+      }}>
+        {/* Collapse Toggle Button */}
+        <button
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          style={{
+            position: 'absolute',
+            right: '-16px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+            border: '2px solid #1e293b',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            zIndex: 100,
+            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.4)',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          {isSidebarCollapsed ? 
+            <ChevronRight size={16} color="#fff" /> : 
+            <ChevronLeft size={16} color="#fff" />
+          }
+        </button>
+
         <div style={styles.brandGroup}>
           <div style={styles.logoHex}><Zap size={22} color="#fff" strokeWidth={3} /></div>
-          <div>
-            <h1 style={styles.mainTitle}>UDAANSATHI</h1>
-            <span style={styles.opsText}>OPS CENTER ADMIN</span>
-          </div>
+          {!isSidebarCollapsed && (
+            <div>
+              <h1 style={styles.mainTitle}>UDAANSATHI</h1>
+              <span style={styles.opsText}>OPS CENTER ADMIN</span>
+            </div>
+          )}
         </div>
 
-        <div style={styles.navLabel}>COMMAND MENU</div>
+        {!isSidebarCollapsed && <div style={styles.navLabel}>COMMAND MENU</div>}
         <nav style={styles.navGroup}>
           <button 
             onClick={() => setActiveTab("FLIGHTS")} 
-            style={activeTab === "FLIGHTS" ? styles.activeNavBtn : styles.navBtn}
+            style={{
+              ...(activeTab === "FLIGHTS" ? styles.activeNavBtn : styles.navBtn),
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              padding: isSidebarCollapsed ? '16px 8px' : '16px'
+            }}
+            title="Flight Control"
           >
-            <Plane size={18} /> FLIGHT CONTROL
+            <Plane size={18} /> {!isSidebarCollapsed && 'FLIGHT CONTROL'}
           </button>
 
           <button 
             onClick={() => setActiveTab("DISASTER")} 
-            style={activeTab === "DISASTER" ? styles.activeNavBtn : styles.navBtn}
+            style={{
+              ...(activeTab === "DISASTER" ? styles.activeNavBtn : styles.navBtn),
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              padding: isSidebarCollapsed ? '16px 8px' : '16px'
+            }}
+            title="Disaster Manifest"
           >
-            <ShieldAlert size={18} /> DISASTER MANIFEST
+            <ShieldAlert size={18} /> {!isSidebarCollapsed && 'DISASTER MANIFEST'}
           </button>
 
           <button 
             onClick={() => setActiveTab("REFUNDS")} 
-            style={activeTab === "REFUNDS" ? styles.activeNavBtn : styles.navBtn}
+            style={{
+              ...(activeTab === "REFUNDS" ? styles.activeNavBtn : styles.navBtn),
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+              padding: isSidebarCollapsed ? '16px 8px' : '16px'
+            }}
+            title="Refund Requests"
           >
-            <Banknote size={18} /> REFUND REQUESTS
+            <Banknote size={18} /> {!isSidebarCollapsed && 'REFUND REQUESTS'}
           </button>
         </nav>
 
         <div style={styles.sidebarFooter}>
-            <div style={styles.adminCard}>
+            <div style={{
+              ...styles.adminCard,
+              justifyContent: isSidebarCollapsed ? 'center' : 'flex-start'
+            }}>
                 <UserButton afterSignOutUrl="/Uddan-Sathi/" />
-                <div style={styles.adminInfo}>
-                    <span style={styles.adminName}>{user?.firstName || "Admin"}</span>
-                    <span style={styles.adminRole}>SYSTEM COMMANDER</span>
-                </div>
+                {!isSidebarCollapsed && (
+                  <div style={styles.adminInfo}>
+                      <span style={styles.adminName}>{user?.firstName || "Admin"}</span>
+                      <span style={styles.adminRole}>SYSTEM COMMANDER</span>
+                  </div>
+                )}
             </div>
-            <button style={styles.logoutBtn} onClick={() => window.location.href='/Uddan-Sathi/'}>
-                <LogOut size={16} /> EXIT TERMINAL
+            <button 
+              style={{
+                ...styles.logoutBtn,
+                padding: isSidebarCollapsed ? '10px 8px' : '10px'
+              }} 
+              onClick={() => window.location.href='/Uddan-Sathi/'}
+              title="Exit Terminal"
+            >
+                <LogOut size={16} /> {!isSidebarCollapsed && 'EXIT TERMINAL'}
             </button>
         </div>
       </aside>

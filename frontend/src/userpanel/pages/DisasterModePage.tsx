@@ -36,6 +36,7 @@ const DisasterModePage = () => {
   const [pnr, setPnr] = useState<string>("");
   const [flightDetails, setFlightDetails] = useState<FlightDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasValidAccess, setHasValidAccess] = useState(false);
   const [activeSection, setActiveSection] = useState<'overview' | 'solutions' | 'refund' | 'support'>('overview');
   
   // Refund state
@@ -62,39 +63,52 @@ const DisasterModePage = () => {
       const storedPnr = localStorage.getItem("activePnr") || "";
       const storedName = localStorage.getItem("userName") || "";
       
-      if (storedPnr) {
-        setPnr(storedPnr);
-        setRefundForm(prev => ({ ...prev, pnr: storedPnr, name: storedName }));
+      // If no PNR is stored, redirect to dashboard
+      if (!storedPnr || storedPnr.trim() === "") {
+        setHasValidAccess(false);
+        setIsLoading(false);
+        return;
+      }
+      
+      setPnr(storedPnr);
+      setRefundForm(prev => ({ ...prev, pnr: storedPnr, name: storedName }));
+      
+      // Try to fetch flight details from notifications
+      try {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/notifications/${storedPnr}`);
+        const result = await response.json().catch(() => null);
         
-        // Try to fetch flight details from notifications
-        try {
-          const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/notifications/${storedPnr}`);
-          const result = await response.json().catch(() => null);
+        if (result?.ok && Array.isArray(result.data) && result.data.length > 0) {
+          const lastCancel = result.data.slice().reverse().find((n: any) => 
+            n.type === "CANCELLED" || n.type?.toLowerCase().includes("cancel")
+          );
           
-          if (result?.ok && Array.isArray(result.data) && result.data.length > 0) {
-            const lastCancel = result.data.slice().reverse().find((n: any) => 
-              n.type === "CANCELLED" || n.type?.toLowerCase().includes("cancel")
-            );
-            
-            if (lastCancel) {
-              setFlightDetails({
-                source: lastCancel.source || "DEL",
-                destination: lastCancel.destination || "BOM",
-                flightId: lastCancel.flightId || lastCancel.flight_number || "Unknown",
-                airline: lastCancel.airline || "UdaanSathi Airlines",
-                scheduledTime: lastCancel.scheduledTime
-              });
-            }
+          if (lastCancel) {
+            setFlightDetails({
+              source: lastCancel.source || "DEL",
+              destination: lastCancel.destination || "BOM",
+              flightId: lastCancel.flightId || lastCancel.flight_number || "Unknown",
+              airline: lastCancel.airline || "UdaanSathi Airlines",
+              scheduledTime: lastCancel.scheduledTime
+            });
+            setHasValidAccess(true);
+          } else {
+            // No cancellation found - user shouldn't access this page
+            setHasValidAccess(false);
           }
-        } catch (err) {
-          console.error("Error fetching flight context:", err);
+        } else {
+          // No notifications - user shouldn't access this page
+          setHasValidAccess(false);
         }
-        
-        // Check if refund already requested
-        if (localStorage.getItem(`refundRequested:${storedPnr}`)) {
-          setRefundStatus('success');
-          setRefundMessage("Your refund request was already submitted.");
-        }
+      } catch (err) {
+        console.error("Error fetching flight context:", err);
+        setHasValidAccess(false);
+      }
+      
+      // Check if refund already requested
+      if (localStorage.getItem(`refundRequested:${storedPnr}`)) {
+        setRefundStatus('success');
+        setRefundMessage("Your refund request was already submitted.");
       }
       
       setIsLoading(false);
@@ -232,6 +246,64 @@ const DisasterModePage = () => {
     );
   }
 
+  // Show access denied screen if no valid PNR or no disruption
+  if (!hasValidAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 dark:from-slate-950 dark:via-blue-950/20 dark:to-indigo-950/20 flex items-center justify-center p-4">
+        <Card className="max-w-lg w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50 rounded-full flex items-center justify-center mx-auto">
+              <Shield className="h-12 w-12 text-blue-600 dark:text-blue-400" />
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">No Active Disruption</h2>
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                The Emergency Response Center is only accessible when you have an active flight disruption.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+              <h3 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">To access this page:</h3>
+              <ol className="text-sm text-slate-600 dark:text-slate-400 text-left space-y-2">
+                <li className="flex items-start gap-2">
+                  <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</span>
+                  <span>Go to your Dashboard and enter your PNR number</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</span>
+                  <span>If your flight is cancelled, you'll see an alert banner</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</span>
+                  <span>Click "Resolve Now" to access the Emergency Center</span>
+                </li>
+              </ol>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                onClick={() => navigate('/user/dashboard')}
+                className="flex-1 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-lg"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go to Dashboard
+              </Button>
+              <Button
+                onClick={() => navigate('/user/assistance')}
+                variant="outline"
+                className="flex-1 h-12 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-xl"
+              >
+                <Headphones className="h-4 w-4 mr-2" />
+                Get Support
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-red-50/30 to-orange-50/30 dark:from-slate-950 dark:via-red-950/20 dark:to-orange-950/20">
       {/* Emergency Alert Banner */}
@@ -259,14 +331,14 @@ const DisasterModePage = () => {
           <Button
             variant="outline"
             onClick={() => navigate('/user/dashboard')}
-            className="gap-2 border-white text-white hover:bg-white hover:text-slate-900 transition-colors"
+            className="gap-2 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm transition-colors shadow-sm"
           >
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Back to Dashboard</span>
           </Button>
           
           <div className="flex items-center gap-2">
-            <Badge variant="destructive" className="animate-pulse gap-1">
+            <Badge variant="destructive" className="animate-pulse gap-1 bg-red-600 text-white">
               <AlertTriangle className="h-3 w-3" />
               Emergency Mode
             </Badge>
@@ -397,8 +469,8 @@ const DisasterModePage = () => {
               onClick={() => setActiveSection(id as any)}
               className={`gap-2 transition-all duration-300 ${
                 activeSection === id 
-                  ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg' 
-                  : 'hover:bg-red-50 dark:hover:bg-red-950/50'
+                  ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg border-red-600' 
+                  : 'bg-white/80 dark:bg-slate-800/80 hover:bg-red-50 dark:hover:bg-red-950/50 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -410,40 +482,40 @@ const DisasterModePage = () => {
         {/* Overview Section */}
         {activeSection === 'overview' && (
           <div className="grid md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+            <Card className="bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
               <CardContent className="p-6 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <XCircle className="h-8 w-8 text-white" />
                 </div>
-                <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-2">Flight Status</h3>
-                <Badge variant="destructive" className="text-base px-4 py-1">Cancelled</Badge>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
+                <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-2">Flight Status</h3>
+                <Badge variant="destructive" className="text-base px-4 py-1 bg-red-600 text-white">Cancelled</Badge>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mt-3">
                   We apologize for the inconvenience caused.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+            <Card className="bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
               <CardContent className="p-6 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Zap className="h-8 w-8 text-white" />
                 </div>
-                <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-2">Solutions Ready</h3>
-                <Badge variant="secondary" className="text-base px-4 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">4 Options</Badge>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
+                <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-2">Solutions Ready</h3>
+                <Badge variant="secondary" className="text-base px-4 py-1 bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100">4 Options</Badge>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mt-3">
                   Multiple alternatives available for you.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+            <Card className="bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
               <CardContent className="p-6 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Users className="h-8 w-8 text-white" />
                 </div>
-                <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-2">Support Team</h3>
-                <Badge variant="secondary" className="text-base px-4 py-1 bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">24/7 Active</Badge>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
+                <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-2">Support Team</h3>
+                <Badge variant="secondary" className="text-base px-4 py-1 bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">24/7 Active</Badge>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mt-3">
                   Our team is ready to assist you.
                 </p>
               </CardContent>
@@ -456,7 +528,7 @@ const DisasterModePage = () => {
           <div className="grid md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Alternative Flights */}
             <Card 
-              className="group cursor-pointer bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
+              className="group cursor-pointer bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
               onClick={navigateToAlternativeFlights}
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
@@ -467,16 +539,16 @@ const DisasterModePage = () => {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">Alternative Flights</h3>
-                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">Available</Badge>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">Alternative Flights</h3>
+                      <Badge className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">Available</Badge>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    <p className="text-slate-600 dark:text-slate-300 mb-4">
                       Find and book the next available flight to your destination. Priority rebooking for disrupted passengers.
                     </p>
                     <div className="flex flex-wrap gap-2 mb-4">
-                      <Badge variant="outline">Same-day options</Badge>
-                      <Badge variant="outline">No extra charges</Badge>
-                      <Badge variant="outline">Priority boarding</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">Same-day options</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">No extra charges</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">Priority boarding</Badge>
                     </div>
                     <Button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white gap-2 group-hover:shadow-lg transition-all duration-300">
                       Search Flights
@@ -489,7 +561,7 @@ const DisasterModePage = () => {
 
             {/* Alternative Trains */}
             <Card 
-              className="group cursor-pointer bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
+              className="group cursor-pointer bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
               onClick={navigateToAlternativeTrains}
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 to-emerald-600"></div>
@@ -500,16 +572,16 @@ const DisasterModePage = () => {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">Railway Alternatives</h3>
-                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">Available</Badge>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">Railway Alternatives</h3>
+                      <Badge className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">Available</Badge>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    <p className="text-slate-600 dark:text-slate-300 mb-4">
                       Explore premium train connections. Comfortable AC coaches with meal service included.
                     </p>
                     <div className="flex flex-wrap gap-2 mb-4">
-                      <Badge variant="outline">AC First Class</Badge>
-                      <Badge variant="outline">Meals included</Badge>
-                      <Badge variant="outline">Direct routes</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">AC First Class</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">Meals included</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">Direct routes</Badge>
                     </div>
                     <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white gap-2 group-hover:shadow-lg transition-all duration-300">
                       Search Trains
@@ -522,7 +594,7 @@ const DisasterModePage = () => {
 
             {/* Nearby Hotels */}
             <Card 
-              className="group cursor-pointer bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
+              className="group cursor-pointer bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
               onClick={navigateToNearbyHotels}
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-violet-600"></div>
@@ -533,16 +605,16 @@ const DisasterModePage = () => {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">Emergency Accommodation</h3>
-                      <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">Limited</Badge>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">Emergency Accommodation</h3>
+                      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100">Limited</Badge>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    <p className="text-slate-600 dark:text-slate-300 mb-4">
                       Complimentary hotel stays at partner properties. Airport shuttle service included.
                     </p>
                     <div className="flex flex-wrap gap-2 mb-4">
-                      <Badge variant="outline">5-star hotels</Badge>
-                      <Badge variant="outline">Free meals</Badge>
-                      <Badge variant="outline">Airport transfer</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">5-star hotels</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">Free meals</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">Airport transfer</Badge>
                     </div>
                     <Button className="w-full bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white gap-2 group-hover:shadow-lg transition-all duration-300">
                       Find Hotels
@@ -555,7 +627,7 @@ const DisasterModePage = () => {
 
             {/* Ground Transport */}
             <Card 
-              className="group cursor-pointer bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
+              className="group cursor-pointer bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 overflow-hidden"
               onClick={navigateToSupport}
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-red-600"></div>
@@ -566,16 +638,16 @@ const DisasterModePage = () => {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">Ground Transport</h3>
-                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">Available</Badge>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">Ground Transport</h3>
+                      <Badge className="bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">Available</Badge>
                     </div>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    <p className="text-slate-600 dark:text-slate-300 mb-4">
                       Premium cab and taxi services. Professional drivers with real-time GPS tracking.
                     </p>
                     <div className="flex flex-wrap gap-2 mb-4">
-                      <Badge variant="outline">Premium vehicles</Badge>
-                      <Badge variant="outline">GPS tracking</Badge>
-                      <Badge variant="outline">24/7 service</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">Premium vehicles</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">GPS tracking</Badge>
+                      <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300">24/7 service</Badge>
                     </div>
                     <Button className="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white gap-2 group-hover:shadow-lg transition-all duration-300">
                       Book Transport
@@ -591,26 +663,26 @@ const DisasterModePage = () => {
         {/* Refund Section */}
         {activeSection === 'refund' && (
           <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <Card className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-0 shadow-2xl overflow-hidden">
+            <Card className="bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500"></div>
               
               <CardHeader className="text-center pb-2">
                 <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-orange-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
                   <CreditCard className="h-10 w-10 text-white" />
                 </div>
-                <CardTitle className="text-2xl text-gray-900 dark:text-white">Request Refund</CardTitle>
-                <p className="text-gray-600 dark:text-gray-400">Fill in your details to claim your refund</p>
+                <CardTitle className="text-2xl text-slate-900 dark:text-white">Request Refund</CardTitle>
+                <p className="text-slate-600 dark:text-slate-300">Fill in your details to claim your refund</p>
               </CardHeader>
 
               <CardContent className="p-6">
                 {refundStatus === 'success' ? (
                   <div className="text-center space-y-4 py-8">
-                    <div className="w-20 h-20 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mx-auto">
+                    <div className="w-20 h-20 bg-green-100 dark:bg-green-800/50 rounded-full flex items-center justify-center mx-auto">
                       <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-green-800 dark:text-green-300">Request Submitted!</h3>
-                    <p className="text-gray-600 dark:text-gray-400">{refundMessage}</p>
-                    <Badge variant="secondary" className="text-base px-4 py-2">
+                    <h3 className="text-xl font-bold text-green-700 dark:text-green-300">Request Submitted!</h3>
+                    <p className="text-slate-600 dark:text-slate-300">{refundMessage}</p>
+                    <Badge variant="secondary" className="text-base px-4 py-2 bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
                       Processing Time: 5-7 Business Days
                     </Badge>
                   </div>
@@ -618,8 +690,8 @@ const DisasterModePage = () => {
                   <form onSubmit={handleRefundSubmit} className="space-y-5">
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="name" className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-gray-500" />
+                        <Label htmlFor="name" className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                          <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                           Full Name *
                         </Label>
                         <Input
@@ -627,13 +699,13 @@ const DisasterModePage = () => {
                           value={refundForm.name}
                           onChange={(e) => setRefundForm(prev => ({ ...prev, name: e.target.value }))}
                           placeholder="Enter your full name"
-                          className="h-12"
+                          className="h-12 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                           required
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="pnr" className="flex items-center gap-2">
-                          <Plane className="h-4 w-4 text-gray-500" />
+                        <Label htmlFor="pnr" className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                          <Plane className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                           PNR Number *
                         </Label>
                         <Input
@@ -641,7 +713,7 @@ const DisasterModePage = () => {
                           value={refundForm.pnr}
                           onChange={(e) => setRefundForm(prev => ({ ...prev, pnr: e.target.value.toUpperCase() }))}
                           placeholder="e.g., ABC123"
-                          className="h-12 font-mono"
+                          className="h-12 font-mono bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                           required
                         />
                       </div>
@@ -649,8 +721,8 @@ const DisasterModePage = () => {
 
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="amount" className="flex items-center gap-2">
-                          <IndianRupee className="h-4 w-4 text-gray-500" />
+                        <Label htmlFor="amount" className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                          <IndianRupee className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                           Refund Amount (₹)
                         </Label>
                         <Input
@@ -659,12 +731,12 @@ const DisasterModePage = () => {
                           value={refundForm.amount}
                           onChange={(e) => setRefundForm(prev => ({ ...prev, amount: e.target.value }))}
                           placeholder="5500"
-                          className="h-12"
+                          className="h-12 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="upi" className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4 text-gray-500" />
+                        <Label htmlFor="upi" className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                          <CreditCard className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                           UPI ID (for quick refund)
                         </Label>
                         <Input
@@ -672,14 +744,14 @@ const DisasterModePage = () => {
                           value={refundForm.upiId}
                           onChange={(e) => setRefundForm(prev => ({ ...prev, upiId: e.target.value }))}
                           placeholder="yourname@upi"
-                          className="h-12"
+                          className="h-12 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="reason" className="flex items-center gap-2">
-                        <MessageSquare className="h-4 w-4 text-gray-500" />
+                      <Label htmlFor="reason" className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                        <MessageSquare className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                         Reason for Refund
                       </Label>
                       <Input
@@ -687,12 +759,12 @@ const DisasterModePage = () => {
                         value={refundForm.reason}
                         onChange={(e) => setRefundForm(prev => ({ ...prev, reason: e.target.value }))}
                         placeholder="Brief reason for refund"
-                        className="h-12"
+                        className="h-12 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                     </div>
 
                     {refundStatus === 'error' && (
-                      <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-center gap-3">
+                      <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-xl p-4 flex items-center gap-3">
                         <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
                         <p className="text-sm text-red-700 dark:text-red-300">{refundMessage}</p>
                       </div>
@@ -716,7 +788,7 @@ const DisasterModePage = () => {
                       )}
                     </Button>
 
-                    <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-center text-slate-500 dark:text-slate-400">
                       By submitting, you agree to our refund policy. Refunds are processed within 5-7 business days.
                     </p>
                   </form>
@@ -730,15 +802,15 @@ const DisasterModePage = () => {
         {activeSection === 'support' && (
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <Card 
-              className="group cursor-pointer bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+              className="group cursor-pointer bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
               onClick={callHelpline}
             >
               <CardContent className="p-6 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
                   <Phone className="h-8 w-8 text-white" />
                 </div>
-                <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">Emergency Helpline</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">24/7 Priority Support</p>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1">Emergency Helpline</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">24/7 Priority Support</p>
                 <p className="font-mono font-bold text-red-600 dark:text-red-400">1800-123-456</p>
                 <div className="mt-3 flex items-center justify-center gap-1 text-green-600 dark:text-green-400 text-sm">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -748,15 +820,15 @@ const DisasterModePage = () => {
             </Card>
 
             <Card 
-              className="group cursor-pointer bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+              className="group cursor-pointer bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
               onClick={openWhatsApp}
             >
               <CardContent className="p-6 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
                   <MessageSquare className="h-8 w-8 text-white" />
                 </div>
-                <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">WhatsApp Chat</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Quick responses</p>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1">WhatsApp Chat</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">Quick responses</p>
                 <p className="font-semibold text-green-600 dark:text-green-400">Chat Now</p>
                 <div className="mt-3 flex items-center justify-center gap-1 text-green-600 dark:text-green-400 text-sm">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -766,15 +838,15 @@ const DisasterModePage = () => {
             </Card>
 
             <Card 
-              className="group cursor-pointer bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+              className="group cursor-pointer bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
               onClick={sendEmail}
             >
               <CardContent className="p-6 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
                   <Mail className="h-8 w-8 text-white" />
                 </div>
-                <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">Email Support</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Detailed assistance</p>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1">Email Support</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">Detailed assistance</p>
                 <p className="text-sm font-medium text-blue-600 dark:text-blue-400 break-all">support@udaansathi.com</p>
                 <div className="mt-3 flex items-center justify-center gap-1 text-blue-600 dark:text-blue-400 text-sm">
                   <ExternalLink className="h-3 w-3" />
@@ -784,15 +856,15 @@ const DisasterModePage = () => {
             </Card>
 
             <Card 
-              className="group cursor-pointer bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+              className="group cursor-pointer bg-white dark:bg-slate-900 backdrop-blur-sm border border-slate-200 dark:border-slate-700 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
               onClick={navigateToSupport}
             >
               <CardContent className="p-6 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
                   <Headphones className="h-8 w-8 text-white" />
                 </div>
-                <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">Support Center</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Full assistance portal</p>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1">Support Center</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">Full assistance portal</p>
                 <p className="font-semibold text-purple-600 dark:text-purple-400">Visit Center</p>
                 <div className="mt-3 flex items-center justify-center gap-1 text-purple-600 dark:text-purple-400 text-sm">
                   <ChevronRight className="h-3 w-3" />
