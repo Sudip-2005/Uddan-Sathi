@@ -391,6 +391,59 @@ def cancel_flight():
         traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
+# --- 5b. Send Delay Email Notification ---
+def send_delay_email(passenger_email, passenger_name, flight_id, source, destination, new_time, delay_duration):
+    """Sends a professional delay notification email via Resend API."""
+    
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;">
+        <div style="background-color: #f59e0b; padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">UDAAN SATHI</h1>
+            <p style="color: #fef3c7; margin: 5px 0 0 0;">Flight Delay Notice</p>
+        </div>
+        <div style="padding: 30px; color: #333; line-height: 1.6;">
+            <h2 style="color: #111;">Your Flight Has Been Delayed</h2>
+            <p>Dear <strong>{passenger_name}</strong>,</p>
+            <p>We regret to inform you that your flight <strong>{flight_id}</strong> from <strong>{source}</strong> to <strong>{destination}</strong> has been delayed.</p>
+            
+            <div style="background-color: #fffbeb; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                <p style="margin: 0;"><strong>Flight Number:</strong> {flight_id}</p>
+                <p style="margin: 5px 0 0 0;"><strong>Route:</strong> {source} &rarr; {destination}</p>
+                <p style="margin: 5px 0 0 0;"><strong>New Departure Time:</strong> {new_time}</p>
+                <p style="margin: 5px 0 0 0;"><strong>Delay:</strong> {delay_duration}</p>
+            </div>
+
+            <p>We sincerely apologize for any inconvenience this may cause. Please check the <strong>Udaan Sathi Dashboard</strong> for the latest updates:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="http://localhost:5173/user/dashboard" 
+                   style="background-color: #f59e0b; color: white; padding: 14px 25px; text-decoration: none; font-weight: bold; border-radius: 5px; display: inline-block;">
+                   View Flight Status
+                </a>
+            </div>
+
+            <p style="font-size: 14px; color: #666;">
+                If you require immediate assistance, please visit our help desk at the airport or reply to this email.
+            </p>
+        </div>
+        <div style="background-color: #f3f4f6; padding: 20px; text-align: center; font-size: 12px; color: #9ca3af;">
+            &copy; 2025 Udaan Sathi Airlines. All rights reserved.
+        </div>
+    </div>
+    """
+
+    try:
+        resend.Emails.send({
+            "from": "Udaan Sathi <onboarding@resend.dev>",
+            "to": passenger_email,
+            "subject": f"NOTICE: Your flight {flight_id} has been delayed",
+            "html": html_content
+        })
+        return True
+    except Exception as e:
+        print(f"Delay Email Error: {e}")
+        return False
+
 # --- 6. Ticket Download (ReportLab PDF) ---
 @app.route("/bookings/<pnr>/ticket", methods=["GET"])
 def download_ticket(pnr):
@@ -440,33 +493,54 @@ def delay_flight():
         flight_id = data.get("flight_id") # e.g., 6E213
         source = data.get("source").upper()
         new_time = data.get("new_time")
+        delay_duration = data.get("delay", "Unknown duration")
         
         root = get_database() # Your Firebase reference
         
-        # 1. Update flight time (You said this part works)
+        # 1. Update flight time and status
         flight_ref = root.child("airports").child(source).child("flights").child(flight_id)
-        flight_ref.update({"dep_time": new_time})
+        flight_data = flight_ref.get()
+        
+        if not flight_data:
+            return jsonify({"ok": False, "error": "Flight not found"}), 404
+            
+        flight_ref.update({"dep_time": new_time, "status": "Delayed", "delay": delay_duration})
+        destination = flight_data.get("destination", "Unknown")
 
         # 2. Get all passengers for this flight
-        # IMPORTANT: Make sure your flights in DB have a 'passengers' node
-        passengers = flight_ref.child("passengers").get()
+        passengers = flight_data.get("passengers", {})
         
         if not passengers:
-            return jsonify({"ok": False, "message": "No passengers found on this flight"}), 404
+            return jsonify({"ok": True, "message": "Flight delayed, but no passengers found to notify"}), 200
 
-        # 3. CREATE THE NOTIFICATIONS SECTION
-        for pnr in passengers:
+        # 3. CREATE NOTIFICATIONS AND SEND EMAILS
+        emails_sent = 0
+        for pnr, p_info in passengers.items():
+            # Push App Notification
             alert_data = {
-                "message": f"Flight {flight_id} is delayed to {new_time}.",
+                "title": "FLIGHT DELAYED",
+                "message": f"Flight {flight_id} is delayed to {new_time}. Delay: {delay_duration}",
                 "type": "DELAYED",
                 "created_at": datetime.utcnow().isoformat()
             }
-            # This line forced Firebase to create the 'notifications' folder
             root.child("notifications").child(pnr).push(alert_data)
+            
+            # Send Email Notification via Resend
+            email = p_info.get("email")
+            name = p_info.get("name", "Passenger")
+            if email:
+                if send_delay_email(email, name, flight_id, source, destination, new_time, delay_duration):
+                    emails_sent += 1
+                    # Mark notification as sent in the passenger record
+                    flight_ref.child("passengers").child(pnr).update({"notification_sent": True})
 
-        return jsonify({"ok": True, "message": "Notifications created in DB"}), 200
+        return jsonify({
+            "ok": True, 
+            "message": f"Flight delayed. {len(passengers)} passengers notified, {emails_sent} emails sent."
+        }), 200
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
     
 # --- ADD THESE TO app.py ---
@@ -512,9 +586,21 @@ def process_refund(flight_id, pax_id):
 
 from flask import make_response
 
+# ALLOWED ORIGINS for CORS
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://uddan-sathi.vercel.app",
+    "https://udaan-sathi.vercel.app"
+]
+
 # HELPER FUNCTION FOR CORS - MUST BE DEFINED BEFORE ROUTES THAT USE IT
 def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+    origin = request.headers.get("Origin", "")
+    if origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    else:
+        response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGINS[0]
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     response.headers["Access-Control-Allow-Credentials"] = "true"
@@ -761,10 +847,14 @@ def flight_item(airport, flight_id):
 
 from flask import make_response
 
-# Helper to add CORS to any response
+# Helper to add CORS to any response (uses ALLOWED_ORIGINS defined above)
 def add_cors(res):
-    res.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
-    res.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    origin = request.headers.get("Origin", "")
+    if origin in ALLOWED_ORIGINS:
+        res.headers["Access-Control-Allow-Origin"] = origin
+    else:
+        res.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGINS[0]
+    res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
     res.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     res.headers["Access-Control-Allow-Credentials"] = "true"
     return res

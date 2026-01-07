@@ -42,10 +42,37 @@ AIRLINES = [
     {"n": "Qatar Airways", "c": "QR"}
 ]
 
-# Real Names to avoid "Passenger 1"
-REAL_NAMES = ["Aarav Sharma", "Aditi Rao", "Siddharth Malhotra", "Priya Iyer", "Vikram Seth", 
-              "Ananya Pandey", "Rohan Gupta", "Sana Khan", "John Doe", "Emily Smith", 
-              "Arjun Kapoor", "Meera Nair", "Rahul Verma", "Ishani Bhat", "Karan Johar"]
+# Real Names with corresponding emails for Resend API notifications
+REAL_PASSENGERS = [
+    {"name": "Aarav Sharma", "email": "aarav.sharma@email.com", "phone": "+91-9876543210"},
+    {"name": "Aditi Rao", "email": "aditi.rao@email.com", "phone": "+91-9876543211"},
+    {"name": "Siddharth Malhotra", "email": "siddharth.m@email.com", "phone": "+91-9876543212"},
+    {"name": "Priya Iyer", "email": "priya.iyer@email.com", "phone": "+91-9876543213"},
+    {"name": "Vikram Seth", "email": "vikram.seth@email.com", "phone": "+91-9876543214"},
+    {"name": "Ananya Pandey", "email": "ananya.p@email.com", "phone": "+91-9876543215"},
+    {"name": "Rohan Gupta", "email": "rohan.gupta@email.com", "phone": "+91-9876543216"},
+    {"name": "Sana Khan", "email": "sana.khan@email.com", "phone": "+91-9876543217"},
+    {"name": "John Doe", "email": "john.doe@email.com", "phone": "+1-5551234567"},
+    {"name": "Emily Smith", "email": "emily.smith@email.com", "phone": "+1-5551234568"},
+    {"name": "Arjun Kapoor", "email": "arjun.kapoor@email.com", "phone": "+91-9876543218"},
+    {"name": "Meera Nair", "email": "meera.nair@email.com", "phone": "+91-9876543219"},
+    {"name": "Rahul Verma", "email": "rahul.verma@email.com", "phone": "+91-9876543220"},
+    {"name": "Ishani Bhat", "email": "ishani.bhat@email.com", "phone": "+91-9876543221"},
+    {"name": "Karan Johar", "email": "karan.johar@email.com", "phone": "+91-9876543222"},
+    {"name": "Neha Dhupia", "email": "neha.d@email.com", "phone": "+91-9876543223"},
+    {"name": "Amit Patel", "email": "amit.patel@email.com", "phone": "+91-9876543224"},
+    {"name": "Shreya Ghoshal", "email": "shreya.g@email.com", "phone": "+91-9876543225"},
+    {"name": "Rajesh Kumar", "email": "rajesh.k@email.com", "phone": "+91-9876543226"},
+    {"name": "Deepika Singh", "email": "deepika.s@email.com", "phone": "+91-9876543227"},
+    {"name": "Mohammad Ali", "email": "m.ali@email.com", "phone": "+91-9876543228"},
+    {"name": "Sarah Johnson", "email": "sarah.j@email.com", "phone": "+1-5551234569"},
+    {"name": "David Chen", "email": "david.chen@email.com", "phone": "+1-5551234570"},
+    {"name": "Fatima Ahmed", "email": "fatima.a@email.com", "phone": "+971-501234567"},
+    {"name": "James Wilson", "email": "james.w@email.com", "phone": "+44-7911123456"}
+]
+
+# Keep backward compatibility
+REAL_NAMES = [p["name"] for p in REAL_PASSENGERS]
 
 def generate_real_hierarchy():
     db = {"airports": {}}
@@ -76,14 +103,19 @@ def generate_real_hierarchy():
             "passengers": {}
         }
 
-        # Add 10 Passengers per flight
-        for _ in range(10):
+        # Add 10-15 Passengers per flight with complete contact info for Resend notifications
+        num_passengers = random.randint(10, 15)
+        for _ in range(num_passengers):
             pnr = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+            passenger = random.choice(REAL_PASSENGERS)
             flight_data["passengers"][pnr] = {
-                "name": random.choice(REAL_NAMES),
+                "name": passenger["name"],
+                "email": passenger["email"],
+                "phone": passenger["phone"],
                 "seat": f"{random.randint(1, 30)}{random.choice('ABCDEF')}",
                 "status": "Confirmed",
-                "booking_date": "2025-12-28"
+                "booking_date": "2025-12-28",
+                "notification_sent": False  # Track if delay/cancellation notification was sent
             }
         
         # Nest the flight under the Source Airport
